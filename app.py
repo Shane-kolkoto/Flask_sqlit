@@ -1,58 +1,56 @@
-import sqlite3
 from flask import Flask, render_template, request
-
-
-def init_sqlite_db():
-    conn = sqlite3.connect('database.db')
-    print("Opened database successfully")
-    conn.execute('CREATE TABLE if not exisit students (name TEXT, addr TEXT, city TEXT, pin TEXT)')
-    print("Table created successfully")
-    conn.close()
-    init_sqlite_db()
+import sqlite3 as sql
 
 
 app = Flask(__name__)
 
 
-@app.route('/enter-new/')
-def enter_new_student():
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+
+@app.route('/enternew/')
+def new_student():
     return render_template('student.html')
 
 
-@app.route('/add-new-record/', methods=['POST'])
-def add_new_record():
-    if request.method == "POST":
+@app.route('/addrec/', methods=['POST', 'GET'])
+def addrec():
+    if request.method == 'POST':
         try:
-            name = request.form['name']
+            nm = request.form['name']
             addr = request.form['add']
             city = request.form['city']
             pin = request.form['pin']
 
-            with sqlite3.connect('database.db') as con:
+            with sql.connect("database.db") as con:
                 cur = con.cursor()
-                cur.execute("INSERT INTO students (name, addr, city, pin) VALUES (?, ?, ?, ?)", (name, addr, city, pin))
+                con.execute('CREATE TABLE IF NOT EXISTS students (name TEXT, addr TEXT, city TEXT, pin TEXT)')
+                cur.execute("INSERT INTO students (name,addr,city,pin) VALUES (?,?,?,?)", (nm, addr, city, pin))
                 con.commit()
-                msg = "Record successfully added."
-        except Exception as e:
+                msg = "Record successfully added"
+
+        except:
             con.rollback()
-            msg = "Error occurred in insert operation: " + e
+            msg = "error in insert operation"
 
         finally:
+            return render_template("result.html", msg=msg)
             con.close()
-            return render_template('result.html', msg=msg)
 
 
-@app.route('/show-records/', methods=["GET"])
-def show_records():
-    records = []
-    try:
-        with sqlite3.connect('database.db') as con:
-            cur = con.cursor()
-            cur.execute("SELECT * FROM students")
-            records = cur.fetchall()
-    except Exception as e:
-        con.rollback()
-        print("There was an error fetching results from the database.")
-    finally:
-        con.close()
-        return render_template('records.html', records=records)
+@app.route('/list')
+def list():
+    con = sql.connect("database.db")
+    con.row_factory = sql.Row
+
+    cur = con.cursor()
+    cur.execute("select * from students")
+
+    rows = cur.fetchall()
+    return render_template("records.html", rows=rows)
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
